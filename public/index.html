@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Block Builder</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/theme/monokai.min.css">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="container">
+    <div class="top-pane">
+      <h1>Email Block Builder</h1>
+      <div class="input-container">
+        <label for="prompt-input">Enter your email design prompt:</label>
+        <textarea id="prompt-input" placeholder="Example: Generate a responsive two-column layout with a hero image (alt='Hero'), headline in 'Helvetica, Arial, sans-serif', body text, and a 4px‐rounded CTA button. Ensure a 480px mobile breakpoint, full Outlook support, and no spam words."></textarea>
+      </div>
+      <button id="generate-btn" class="primary-button">Generate Email HTML</button>
+      <div id="loading-indicator" class="hidden">
+        <div class="spinner"></div>
+        <p>Generating your email code...</p>
+      </div>
+      <div id="error-message" class="error hidden"></div>
+    </div>
+    
+    <div class="bottom-pane">
+      <div class="preview-container">
+        <h2>Email Preview</h2>
+        <div id="email-preview"></div>
+      </div>
+      <button id="edit-code-btn" class="secondary-button">Edit HTML/CSS</button>
+    </div>
+  </div>
+
+  <!-- Code Editor Modal -->
+  <div id="code-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit HTML/CSS</h2>
+        <span class="close-modal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <textarea id="code-editor"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="apply-changes-btn" class="primary-button">Apply Changes</button>
+        <button id="cancel-changes-btn" class="secondary-button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Required Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/htmlmixed/htmlmixed.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/xml/xml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/css/css.min.js"></script>
+  <script src="./block-sdk.js"></script>
+  <script src="./script.js"></script>
+</body>
+</html>
