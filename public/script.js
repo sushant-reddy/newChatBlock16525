@@ -6,11 +6,11 @@ let lastPrompt = '';
 
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize the Block SDK if in SFMC environment
-  if (window.sfdc) {
-    sdk = new window.sfdc.BlockSDK();
-    initializeBlockSDK();
-  } else {
-    console.warn('SFMC BlockSDK not available. Running in development mode.');
+  if (!sdk) {
+        sdk = new window.sfdc.BlockSDK();
+        console.log('BlockSDK instance created:', sdk);
+    } else if (!window.BlockSDK) {
+        console.error('BlockSDK is not available on window object.');
   }
 
   // Initialize UI elements
