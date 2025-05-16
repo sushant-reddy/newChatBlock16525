@@ -13,11 +13,8 @@ body {
 }
 
 .top-pane {
-  background-color: #fff;
   border-radius: 8px;
-  padding: 20px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .bottom-pane {
@@ -35,7 +32,7 @@ h1 {
 
 h2 {
   color: #0176d3;
-  margin-top: 0;
+  margin: 0;
 }
 
 .input-container {
@@ -49,7 +46,7 @@ label {
 }
 
 textarea#prompt-input {
-  width: 100%;
+  width: 96%;
   height: 100px;
   padding: 12px;
   border: 1px solid #ddd;
@@ -63,8 +60,8 @@ textarea#prompt-input {
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 5px 5px;
+  font-size: 11px;
   cursor: pointer;
   transition: background-color 0.3s;
 }
@@ -78,8 +75,8 @@ textarea#prompt-input {
   color: #0176d3;
   border: 1px solid #0176d3;
   border-radius: 4px;
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 5px 5px;
+  font-size: 11px;
   cursor: pointer;
   transition: background-color 0.3s;
 }
@@ -159,18 +156,15 @@ textarea#prompt-input {
 }
 
 .modal-content {
-  background-color: #fff;
-  border-radius: 8px;
-  width: 90%;
-  max-width: 1000px;
-  max-height: 90vh;
+  background-color: #fff;  
+  height: 416px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .modal-header {
-  padding: 16px;
+  padding: 6px 6px 0px;
   border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
@@ -180,12 +174,10 @@ textarea#prompt-input {
 .modal-body {
   flex-grow: 1;
   overflow: auto;
-  padding: 16px;
 }
 
 .modal-footer {
-  padding: 16px;
-  border-top: 1px solid #eee;
+  padding: 6px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
@@ -202,8 +194,7 @@ textarea#prompt-input {
 
 /* CodeMirror customization */
 .CodeMirror {
-  height: 60vh;
-  border: 1px solid #ddd;
-  font-size: 14px;
+  height: auto;
+ /* font-size: 14px;*/
   line-height: 1.6;
 }
