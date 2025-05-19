@@ -40,7 +40,7 @@ Guidelines:
 - Do not include JavaScript (it won't work in email clients)
 - Do not use external CSS stylesheets
 - Include Outlook only VML and <!--[if mso]>…<![endif]--> conditionals.
-- Avoid spam trigger words ("FREE!!!", "BUY NOW").
+- Avoid spam trigger words ("FREE", "BUY NOW").
 - Provide alt attributes for images and lang on <html>/<body>.
 - Support for AMPscript and personalization variables (like %%firstName%%)
 - Output only the HTML code and nothing else, not even this.
