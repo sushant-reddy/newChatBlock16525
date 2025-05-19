@@ -128,7 +128,6 @@ async function generateEmailHTML() {
 
 function openCodeEditor() {
   codeEditor.setValue(currentEmailContent);
-  codeEditor.refresh();
   document.getElementById('code-modal').style.display = 'block';
 }
 
