@@ -7,7 +7,7 @@ body {
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 368px;
   margin: 0 auto;
   padding: 20px;
 }
@@ -153,6 +153,7 @@ textarea#prompt-input {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  display: none;
 }
 
 .modal-content {
