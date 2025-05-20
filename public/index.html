@@ -16,7 +16,24 @@
         <label for="prompt-input">Enter your email design prompt:</label>
         <textarea id="prompt-input" placeholder="Example: Generate a responsive two-column layout with a hero image (alt='Hero'), headline in 'Helvetica, Arial, sans-serif', body text, and a 4px‐rounded CTA button. Ensure a 480px mobile breakpoint, full Outlook support, and no spam words."></textarea>
       </div>
-      <button id="generate-btn" class="primary-button">Generate Email HTML</button>
+      <div class="controls-container">
+        <div class="controls-row">
+          <button id="generate-btn" class="primary-button">Generate Email HTML</button>
+          <div class="dropdown-container">
+            <select id="brand-guidelines-dropdown" class="dropdown">
+              <option value="">-- Select Brand Guidelines --</option>
+              <!-- Options will be populated by JavaScript -->
+            </select>
+          </div>
+        </div>
+        <div class="controls-row prompt-controls">
+          <input type="text" id="prompt-name" placeholder="Name this brand guideline" class="prompt-name-input">
+          <div style="display: flex; gap: 6px;">
+          <button id="save-prompt-btn" class="secondary-button">Save Guideline</button>
+          <button id="delete-guideline-btn" class="danger-button">Delete Guideline</button>
+          </div>
+        </div>
+      </div>
       <div id="loading-indicator" class="hidden">
         <div class="spinner"></div>
         <p>Generating your email code...</p>
