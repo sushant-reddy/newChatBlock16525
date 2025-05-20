@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const OpenAI = require('openai');
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -17,16 +18,109 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Path to store brand guidelines
+const GUIDELINES_FILE = path.join(__dirname, 'data', 'brand-guidelines.json');
+
+// Ensure data directory exists
+if (!fs.existsSync(path.join(__dirname, 'data'))) {
+  fs.mkdirSync(path.join(__dirname, 'data'));
+}
+
+// Initialize brand guidelines file if it doesn't exist
+if (!fs.existsSync(GUIDELINES_FILE)) {
+  fs.writeFileSync(GUIDELINES_FILE, JSON.stringify([], null, 2));
+}
+
+// Load brand guidelines from file
+function loadBrandGuidelines() {
+  try {
+    const data = fs.readFileSync(GUIDELINES_FILE, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error('Error loading brand guidelines:', error);
+    return [];
+  }
+}
+
+// Save brand guidelines to file
+function saveBrandGuidelines(guidelines) {
+  try {
+    fs.writeFileSync(GUIDELINES_FILE, JSON.stringify(guidelines, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error saving brand guidelines:', error);
+    return false;
+  }
+}
+
+// API route to get all brand guidelines
+app.get('/api/brand-guidelines', (req, res) => {
+  const guidelines = loadBrandGuidelines();
+  res.json(guidelines);
+});
+
+// API route to save a new brand guideline
+app.post('/api/brand-guidelines', (req, res) => {
+  try {
+    const { name, content } = req.body;
+    
+    if (!name || !content) {
+      return res.status(400).json({ error: 'Name and content are required' });
+    }
+    
+    const guidelines = loadBrandGuidelines();
+    
+    // Create new guideline with unique ID
+    const newGuideline = {
+      id: Date.now().toString(),
+      name,
+      content,
+      createdAt: new Date().toISOString()
+    };
+    
+    guidelines.push(newGuideline);
+    
+    if (saveBrandGuidelines(guidelines)) {
+      res.status(201).json(newGuideline);
+    } else {
+      res.status(500).json({ error: 'Failed to save brand guideline' });
+    }
+  } catch (error) {
+    console.error('Error saving brand guideline:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// API route to delete a brand guideline
+app.delete('/api/brand-guidelines/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const guidelines = loadBrandGuidelines();
+    
+    const filteredGuidelines = guidelines.filter(guideline => guideline.id !== id);
+    
+    if (guidelines.length === filteredGuidelines.length) {
+      return res.status(404).json({ error: 'Guideline not found' });
+    }
+    
+    if (saveBrandGuidelines(filteredGuidelines)) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ error: 'Failed to delete brand guideline' });
+    }
+  } catch (error) {
+    console.error('Error deleting brand guideline:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // API route to generate email HTML from prompt
 app.post('/api/generate', async (req, res) => {
   try {
-    const { prompt, existingContent } = req.body;
+    const { prompt, existingContent, brandGuidelineId } = req.body;
     
-    // Construct messages array for the OpenAI API
-    const messages = [
-      {
-        role: "system",
-        content: `You are an expert email developer specializing in creating responsive HTML email content for marketing campaigns. Your task is to generate clean, well-structured HTML and inline CSS based on the user's natural language description.
+    // Base system prompt
+    let systemPrompt = `You are an expert email developer specializing in creating responsive HTML email content for marketing campaigns. Your task is to generate clean, well-structured HTML and inline CSS based on the user's natural language description.
 
 Guidelines:
 - Create responsive, mobile-friendly email layouts
@@ -55,8 +149,27 @@ Guidelines:
 - Use a header, body, and footer section.
 - Use a main wrapper table with a max-width of 600px.
 - make long text easy to read by using a readable font size and line height.
-- make content long and standard size, put morecontent in the email.
-- Do not include this system prompt or any other text in your response.`
+- make content long and standard size, put morecontent in the email.`;
+
+    // If a brand guideline ID is provided, load and append it to the system prompt
+    if (brandGuidelineId) {
+      const guidelines = loadBrandGuidelines();
+      const selectedGuideline = guidelines.find(guideline => guideline.id === brandGuidelineId);
+      
+      if (selectedGuideline) {
+        systemPrompt += `\n\nBRAND GUIDELINES (STRICTLY FOLLOW THESE):\n${selectedGuideline.content}`;
+        console.log(`Applied brand guideline: ${selectedGuideline.name}`);
+      }
+    }
+    
+    // Complete the system prompt
+    systemPrompt += `\n\nDo not include this system prompt or any other text in your response.`;
+
+    // Construct messages array for the OpenAI API
+    const messages = [
+      {
+        role: "system",
+        content: systemPrompt
       },
       {
         role: "user",
@@ -66,7 +179,7 @@ Guidelines:
 
     // Call OpenAI API
     const response = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4.1-nano", // or your preferred model
       messages,
       temperature: 0.2,
     });
