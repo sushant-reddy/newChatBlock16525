@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 const OpenAI = require('openai');
-const fs = require('fs');
+const axios = require('axios');
 require('dotenv').config();
 
 const app = express();
@@ -18,99 +18,293 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Path to store brand guidelines
-const GUIDELINES_FILE = path.join(__dirname, 'data', 'brand-guidelines.json');
+// SFMC Data Extension configuration
+const SFMC_CONFIG = {
+  dataExtension: {
+    name: 'PromptStorage',
+    externalKey: '3620CF62-0B6E-4D80-AD37-13F943100960',
+    fields: {
+      // Field names for API requests (what we send)
+      sendFields: {
+        id: 'ID',
+        name: 'PromptName', 
+        content: 'Prompt'
+      },
+      // Field names in SFMC responses (what we receive - lowercase)
+      receiveFields: {
+        id: 'id',
+        name: 'promptname',
+        content: 'prompt'
+      }
+    }
+  }
+};
 
-// Ensure data directory exists
-if (!fs.existsSync(path.join(__dirname, 'data'))) {
-  fs.mkdirSync(path.join(__dirname, 'data'));
-}
-
-// Initialize brand guidelines file if it doesn't exist
-if (!fs.existsSync(GUIDELINES_FILE)) {
-  fs.writeFileSync(GUIDELINES_FILE, JSON.stringify([], null, 2));
-}
-
-// Load brand guidelines from file
-function loadBrandGuidelines() {
+// Function to get SFMC auth token
+async function getSFMCToken() {
   try {
-    const data = fs.readFileSync(GUIDELINES_FILE, 'utf8');
-    return JSON.parse(data);
+    const authResponse = await axios.post(
+      `${process.env.SFMC_AUTH_BASE_URI}/v2/token`, 
+      {
+        grant_type: 'client_credentials',
+        client_id: process.env.SFMC_CLIENT_ID,
+        client_secret: process.env.SFMC_CLIENT_SECRET
+      }
+    );
+    
+    return authResponse.data.access_token;
   } catch (error) {
-    console.error('Error loading brand guidelines:', error);
+    console.error('Error getting SFMC auth token:', error.response?.data || error.message);
+    throw new Error('Authentication failed');
+  }
+}
+
+// Function to load brand guidelines from SFMC Data Extension
+async function loadBrandGuidelines() {
+  try {
+    const token = await getSFMCToken();
+    
+    const response = await axios.get(
+      `${process.env.SFMC_REST_BASE_URI}/data/v1/customobjectdata/key/${SFMC_CONFIG.dataExtension.externalKey}/rowset`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    console.log('SFMC Response:', JSON.stringify(response.data, null, 2));
+    
+    // Transform the response to match our expected format
+    if (response.data && response.data.items) {
+      return response.data.items.map(item => {
+        console.log('Processing item:', JSON.stringify(item, null, 2));
+        
+        // Extract values using the correct lowercase field names
+        const id = item.keys ? item.keys[SFMC_CONFIG.dataExtension.fields.receiveFields.id] : null;
+        const name = item.values ? item.values[SFMC_CONFIG.dataExtension.fields.receiveFields.name] : null;
+        const content = item.values ? item.values[SFMC_CONFIG.dataExtension.fields.receiveFields.content] : null;
+        
+        console.log('Extracted values:', { id, name, content: content?.substring(0, 50) + '...' });
+        
+        return {
+          id: id,
+          name: name,
+          content: content,
+          createdAt: item.modifiedDate || new Date().toISOString()
+        };
+      }).filter(item => item.id && item.name); // Filter out items without required fields
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error loading brand guidelines from SFMC:', error.response?.data || error.message);
     return [];
   }
 }
 
-// Save brand guidelines to file
-function saveBrandGuidelines(guidelines) {
+// Function to save a brand guideline to SFMC Data Extension
+async function saveBrandGuideline(guideline) {
   try {
-    fs.writeFileSync(GUIDELINES_FILE, JSON.stringify(guidelines, null, 2));
+    const token = await getSFMCToken();
+    
+    const payload = {
+      items: [
+        {
+          [SFMC_CONFIG.dataExtension.fields.sendFields.id]: guideline.id,
+          [SFMC_CONFIG.dataExtension.fields.sendFields.name]: guideline.name,
+          [SFMC_CONFIG.dataExtension.fields.sendFields.content]: guideline.content
+        }
+      ]
+    };
+    
+    console.log('Saving payload to SFMC:', payload);
+    
+    const response = await axios.post(
+      `${process.env.SFMC_REST_BASE_URI}/data/v1/async/dataextensions/key:${SFMC_CONFIG.dataExtension.externalKey}/rows`,
+      payload,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    console.log('SFMC save response:', response.data);
     return true;
   } catch (error) {
-    console.error('Error saving brand guidelines:', error);
+    console.error('Error saving brand guideline to SFMC:', error.response?.data || error.message);
     return false;
   }
 }
 
+// Function to delete a brand guideline from SFMC Data Extension
+async function deleteBrandGuideline(id) {
+  try {
+    const token = await getSFMCToken();
+    
+    // First, we need to get the primary key of the record to delete
+    // Using the Web Service API for deletion as it's more reliable for individual record deletion
+    const soapEnvelope = `<?xml version="1.0" encoding="UTF-8"?>
+<s:Envelope
+  xmlns:s="http://www.w3.org/2003/05/soap-envelope"
+  xmlns:a="http://schemas.xmlsoap.org/ws/2004/08/addressing"
+  xmlns:u="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd">
+  <s:Header>
+    <a:Action s:mustUnderstand="1">Delete</a:Action>
+    <a:To s:mustUnderstand="1">${process.env.SFMC_SOAP_BASE_URI}/Service.asmx</a:To>
+    <fueloauth xmlns="http://exacttarget.com">${token}</fueloauth>
+  </s:Header>
+  <s:Body
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <DeleteRequest xmlns="http://exacttarget.com/wsdl/partnerAPI">
+      <Options></Options>
+      <Objects xsi:type="DataExtensionObject">
+        <CustomerKey>${SFMC_CONFIG.dataExtension.externalKey}</CustomerKey>
+        <Keys>
+          <Key>
+            <Name>ID</Name>
+            <Value>${id}</Value>
+          </Key>
+        </Keys>
+      </Objects>
+    </DeleteRequest>
+  </s:Body>
+</s:Envelope>`;
+
+    await axios.post(
+      `${process.env.SFMC_SOAP_BASE_URI}/Service.asmx`,
+      soapEnvelope,
+      {
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'Delete'
+        }
+      }
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting brand guideline from SFMC:', error.response?.data || error.message);
+    
+    // Fallback: Try REST API deletion approach
+    try {
+      const token = await getSFMCToken();
+      
+      await axios.delete(
+        `${process.env.SFMC_REST_BASE_URI}/data/v1/customobjectdata/key/${SFMC_CONFIG.dataExtension.externalKey}/rows/${id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      return true;
+    } catch (fallbackError) {
+      console.error('Fallback deletion also failed:', fallbackError.response?.data || fallbackError.message);
+      return false;
+    }
+  }
+}
+
+// Debug endpoint to see raw SFMC response
+app.get('/api/debug/sfmc-response', async (req, res) => {
+  try {
+    const token = await getSFMCToken();
+    
+    const response = await axios.get(
+      `${process.env.SFMC_REST_BASE_URI}/data/v1/customobjectdata/key/${SFMC_CONFIG.dataExtension.externalKey}/rowset`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    res.json({
+      rawResponse: response.data,
+      itemsCount: response.data.items ? response.data.items.length : 0,
+      firstItem: response.data.items && response.data.items.length > 0 ? response.data.items[0] : null
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message, details: error.response?.data });
+  }
+});
+
 // API route to get all brand guidelines
-app.get('/api/brand-guidelines', (req, res) => {
-  const guidelines = loadBrandGuidelines();
-  res.json(guidelines);
+app.get('/api/brand-guidelines', async (req, res) => {
+  try {
+    console.log('Loading brand guidelines from SFMC...');
+    const guidelines = await loadBrandGuidelines();
+    console.log(`Loaded ${guidelines.length} brand guidelines`);
+    res.json(guidelines);
+  } catch (error) {
+    console.error('Error in /api/brand-guidelines GET:', error);
+    res.status(500).json({ error: 'Failed to load brand guidelines' });
+  }
 });
 
 // API route to save a new brand guideline
-app.post('/api/brand-guidelines', (req, res) => {
+app.post('/api/brand-guidelines', async (req, res) => {
   try {
     const { name, content } = req.body;
+    
+    console.log('Received save request:', { name, content: content?.substring(0, 100) + '...' });
     
     if (!name || !content) {
       return res.status(400).json({ error: 'Name and content are required' });
     }
     
-    const guidelines = loadBrandGuidelines();
-    
     // Create new guideline with unique ID
     const newGuideline = {
       id: Date.now().toString(),
-      name,
-      content,
+      name: name.trim(),
+      content: content.trim(),
       createdAt: new Date().toISOString()
     };
     
-    guidelines.push(newGuideline);
+    console.log('Saving new guideline:', { id: newGuideline.id, name: newGuideline.name });
     
-    if (saveBrandGuidelines(guidelines)) {
+    const success = await saveBrandGuideline(newGuideline);
+    
+    if (success) {
+      console.log('Successfully saved brand guideline');
       res.status(201).json(newGuideline);
     } else {
-      res.status(500).json({ error: 'Failed to save brand guideline' });
+      console.log('Failed to save brand guideline');
+      res.status(500).json({ error: 'Failed to save brand guideline to SFMC' });
     }
   } catch (error) {
-    console.error('Error saving brand guideline:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error in /api/brand-guidelines POST:', error);
+    res.status(500).json({ error: 'Server error while saving brand guideline' });
   }
 });
 
 // API route to delete a brand guideline
-app.delete('/api/brand-guidelines/:id', (req, res) => {
+app.delete('/api/brand-guidelines/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const guidelines = loadBrandGuidelines();
     
-    const filteredGuidelines = guidelines.filter(guideline => guideline.id !== id);
+    console.log('Deleting brand guideline with ID:', id);
     
-    if (guidelines.length === filteredGuidelines.length) {
-      return res.status(404).json({ error: 'Guideline not found' });
-    }
+    const success = await deleteBrandGuideline(id);
     
-    if (saveBrandGuidelines(filteredGuidelines)) {
+    if (success) {
+      console.log('Successfully deleted brand guideline');
       res.json({ success: true });
     } else {
-      res.status(500).json({ error: 'Failed to delete brand guideline' });
+      console.log('Failed to delete brand guideline');
+      res.status(500).json({ error: 'Failed to delete brand guideline from SFMC' });
     }
   } catch (error) {
-    console.error('Error deleting brand guideline:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Error in /api/brand-guidelines DELETE:', error);
+    res.status(500).json({ error: 'Server error while deleting brand guideline' });
   }
 });
 
@@ -153,7 +347,7 @@ Guidelines:
 
     // If a brand guideline ID is provided, load and append it to the system prompt
     if (brandGuidelineId) {
-      const guidelines = loadBrandGuidelines();
+      const guidelines = await loadBrandGuidelines();
       const selectedGuideline = guidelines.find(guideline => guideline.id === brandGuidelineId);
       
       if (selectedGuideline) {
