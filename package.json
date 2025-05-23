@@ -1,7 +1,7 @@
 {
   "name": "sfmc-email-block-builder",
   "version": "1.0.0",
-  "description": "Salesforce Marketing Cloud Custom Content Block for generating email HTML using OpenAI",
+  "description": "Salesforce Marketing Cloud Custom Content Block for generating email HTML using OpenAI Threads API",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
@@ -12,13 +12,15 @@
     "marketing cloud",
     "content block",
     "email",
-    "openai"
+    "openai",
+    "threads api"
   ],
   "dependencies": {
+    "axios": "^1.6.2",
     "body-parser": "^1.20.2",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "openai": "^4.0.0"
+    "openai": "^4.20.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
