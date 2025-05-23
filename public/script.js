@@ -10,9 +10,12 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Initialize the Block SDK - this needs to happen first to correctly load saved data
   if (window.sfdc && window.sfdc.BlockSDK) {
-    console.log('SFMC environment detected, initializing BlockSDK');
     sdk = new window.sfdc.BlockSDK();
-    
+    if (sdk.setBlockEditorWidth) {
+      sdk.setBlockEditorWidth(700, function() {
+        console.log('Block editor width set to 700px');
+      });
+    }
     // Initialize with saved data from BlockSDK
     initializeWithSavedData();
   } else {
